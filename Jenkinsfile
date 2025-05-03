@@ -2,12 +2,12 @@ pipeline {
     agent any
     
     tools {
-        maven 'Maven 3.8.1'
+        maven 'Maven' // Use the Maven installation name configured in Jenkins
     }
     
     environment {
-        DOCKER_IMAGE = "dineshraja0601/spring-boot-app:${BUILD_NUMBER}"
-        KUBECONFIG = "${WORKSPACE}/kubeconfig"
+        DOCKER_IMAGE = "yourdockerhubusername/spring-boot-demo:${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials' // ID of your Docker Hub credentials in Jenkins
     }
     
     stages {
@@ -28,6 +28,17 @@ pipeline {
             }
         }
         
+        stage('Run Tests') {
+            steps {
+                sh 'mvn test'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+        
         stage('Build Docker Image') {
             steps {
                 sh 'docker build -t ${DOCKER_IMAGE} .'
@@ -36,53 +47,44 @@ pipeline {
         
         stage('Push to Docker Hub') {
             steps {
-                withCredentials([string(credentialsId: 'docker-hub-pwd', variable: 'DOCKER_HUB_PWD')]) {
-                    sh 'echo ${DOCKER_HUB_PWD} | docker login -u dineshraja0601 --password-stdin'
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
                     sh 'docker push ${DOCKER_IMAGE}'
                 }
             }
-        }
-        
-        stage('Deploy to Kubernetes') {
-            steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh 'cp $KUBECONFIG ${WORKSPACE}/kubeconfig'
-                    
-                    script {
-                        // Initial deployment or update deployment
-                        try {
-                            // Update deployment with new Docker image
-                            sh 'kubectl --kubeconfig=${KUBECONFIG} set image deployment/sample-app-deployment sample-container=${DOCKER_IMAGE}'
-                        } catch (Exception e) {
-                            // If deployment doesn't exist, create it
-                            sh 'envsubst < kubernetes/deployment.yaml | kubectl --kubeconfig=${KUBECONFIG} apply -f -'
-                            sh 'kubectl --kubeconfig=${KUBECONFIG} apply -f kubernetes/service.yaml'
-                        }
-                    }
+            post {
+                always {
+                    sh 'docker logout'
                 }
             }
         }
         
-        stage('Verify Deployment') {
+        stage('Deploy Simulation') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh 'kubectl --kubeconfig=${KUBECONFIG} get pods -l app=spring-boot-app'
-                    sh 'kubectl --kubeconfig=${KUBECONFIG} get services sample-app-service'
-                }
+                echo "In a production environment, we would deploy to Kubernetes here"
+                echo "Image ${DOCKER_IMAGE} is ready for deployment"
+                
+                // Create a deployment report
+                sh """
+                echo "Deployment Report" > deployment-report.txt
+                echo "==================" >> deployment-report.txt
+                echo "Build Number: ${BUILD_NUMBER}" >> deployment-report.txt
+                echo "Docker Image: ${DOCKER_IMAGE}" >> deployment-report.txt
+                echo "Build Timestamp: \$(date)" >> deployment-report.txt
+                echo "Status: Ready for deployment" >> deployment-report.txt
+                """
+                
+                archiveArtifacts artifacts: 'deployment-report.txt', fingerprint: true
             }
         }
     }
     
     post {
-        always {
-            sh 'rm -f ${WORKSPACE}/kubeconfig'
-            sh 'docker logout'
-        }
         success {
-            echo 'CI/CD Pipeline completed successfully!'
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo 'CI/CD Pipeline failed!'
+            echo 'Pipeline failed!'
         }
     }
 }
