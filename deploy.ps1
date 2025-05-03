@@ -36,3 +36,4 @@ Write-Host "4. Create a new Pipeline job using the Jenkinsfile" -ForegroundColor
 Write-Host "5. Run the pipeline to deploy your application" -ForegroundColor White
 
 Write-Host "==== Deployment Process Complete ====" -ForegroundColor Green
+
