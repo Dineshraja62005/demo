@@ -6,8 +6,8 @@ pipeline {
     }
     
     environment {
-        DOCKER_IMAGE = "yourdockerhubusername/spring-boot-demo:${BUILD_NUMBER}"
-        DOCKER_CREDENTIALS_ID = 'docker-hub-credentials' // ID of your Docker Hub credentials in Jenkins
+        DOCKER_IMAGE = "spring-boot-demo:${BUILD_NUMBER}"
+        APP_PORT = "8081"
     }
     
     stages {
@@ -45,46 +45,27 @@ pipeline {
             }
         }
         
-        stage('Push to Docker Hub') {
+        stage('Deploy Container') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
-                    sh 'docker push ${DOCKER_IMAGE}'
-                }
-            }
-            post {
-                always {
-                    sh 'docker logout'
-                }
-            }
-        }
-        
-        stage('Deploy Simulation') {
-            steps {
-                echo "In a production environment, we would deploy to Kubernetes here"
-                echo "Image ${DOCKER_IMAGE} is ready for deployment"
+                // Stop and remove any existing container
+                sh 'docker stop spring-app || true'
+                sh 'docker rm spring-app || true'
                 
-                // Create a deployment report
-                sh """
-                echo "Deployment Report" > deployment-report.txt
-                echo "==================" >> deployment-report.txt
-                echo "Build Number: ${BUILD_NUMBER}" >> deployment-report.txt
-                echo "Docker Image: ${DOCKER_IMAGE}" >> deployment-report.txt
-                echo "Build Timestamp: \$(date)" >> deployment-report.txt
-                echo "Status: Ready for deployment" >> deployment-report.txt
-                """
+                // Run the new container
+                sh 'docker run -d -p ${APP_PORT}:8080 --name spring-app ${DOCKER_IMAGE}'
                 
-                archiveArtifacts artifacts: 'deployment-report.txt', fingerprint: true
+                echo "Application deployed successfully!"
+                echo "Access at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):${APP_PORT}"
             }
         }
     }
     
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'CI/CD Pipeline completed successfully!'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo 'Pipeline failed! Check the logs for details.'
         }
     }
 }

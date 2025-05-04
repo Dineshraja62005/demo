@@ -22,9 +22,7 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name                                        = "${var.project_name}-public-subnet-${count.index + 1}"
-    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
-    "kubernetes.io/role/elb"                    = 1
+    Name = "${var.project_name}-public-subnet-${count.index + 1}"
   }
 }
 
@@ -76,6 +74,14 @@ resource "aws_security_group" "jenkins" {
     description = "Jenkins Web"
     from_port   = 8080
     to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  ingress {
+    description = "Application Port"
+    from_port   = 8081
+    to_port     = 8081
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
