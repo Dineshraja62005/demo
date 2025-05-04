@@ -55,7 +55,7 @@ pipeline {
                 sh 'docker run -d -p ${APP_PORT}:8080 --name spring-app ${DOCKER_IMAGE}'
                 
                 echo "Application deployed successfully!"
-                echo "Access at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):${APP_PORT}"
+                echo "Access your application at: http://YOUR_SERVER_IP:${APP_PORT}"
             }
         }
     }
